@@ -123,7 +123,6 @@ for file in os.listdir(target_images_folder):
                     largest_area = area
                     main_index = i
 
-            # 2) Classify only the main face
             main_encoding = target_image_encodings[main_index]
             closest_match, min_distance = _find_closest_match(main_encoding, known_faces)
 
@@ -140,7 +139,7 @@ for file in os.listdir(target_images_folder):
                 else:
                     matched_person = "unknown"
                     output_folder = output_path_unknown
-                    print(f"Unexpected: matched index={closest_match}, but no folder found. Using unknown.")
+                    print(f"Unexpected: matched index={closest_match}, no folder found. Using unknown.")
                     write_log(f"Unexpected no folder for {matched_person}, forced to unknown folder.")
                 print(f"Multiple faces found in {file}, main face recognized as {matched_person} (distance={min_distance})")
             else:
@@ -148,25 +147,25 @@ for file in os.listdir(target_images_folder):
                 output_folder = output_path_unknown
                 print(f"Multiple faces found in {file}, main face recognized as unknown (distance={min_distance})")
 
-            # 3) Blur all other faces
+            # 2) Blur and draw bounding boxes around all faces
             for i, (top, right, bottom, left) in enumerate(face_locations):
                 if i != main_index:
+                    # Blur non-main faces
                     face_region = pil_image.crop((left, top, right, bottom))
                     blurred_face = face_region.filter(ImageFilter.GaussianBlur(radius=15))
                     pil_image.paste(blurred_face, (left, top, right, bottom))
 
-            # 4) Draw box/label on main face
-            main_top, main_right, main_bottom, main_left = face_locations[main_index]
-            draw.rectangle(((main_left, main_top), (main_right, main_bottom)), outline="red", width=2)
-            draw.text((main_left, main_bottom + 5), matched_person, fill="red", font=font)
+                # Draw bounding boxes for all faces
+                draw.rectangle(((left, top), (right, bottom)), outline="red", width=2)
+                if i == main_index:
+                    # Label only the main face
+                    draw.text((left, bottom + 5), matched_person, fill="red", font=font)
 
-        # Copy original file to the output folder
-        shutil.copy(target_image_path, os.path.join(output_folder, file))
+            # Copy original file to the output folder
+            shutil.copy(target_image_path, os.path.join(output_folder, file))
 
-        # Save bounding-boxed/blurred image
-        boxed_image_path = os.path.join(output_folder, f"boxed_{file}")
-        pil_image.save(boxed_image_path)
-        print(f"Saved boxed image to {boxed_image_path}")
-
-        # Write log
-        write_log(f"'{file}' → classified as '{matched_person}', distance={min_distance}, copied to '{output_folder}'")
+            # Save bounding-boxed/blurred image
+            boxed_image_path = os.path.join(output_folder, f"boxed_{file}")
+            pil_image.save(boxed_image_path)
+            print(f"Saved boxed image to {boxed_image_path}")
+            write_log(f"'{file}' → classified as '{matched_person}', distance={min_distance}, copied to '{output_folder}'")
